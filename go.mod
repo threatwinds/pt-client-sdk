@@ -1,4 +1,4 @@
-module github.com/threatwinds/twpt_client_sdk
+module github.com/threatwinds/pt-client-sdk
 
 go 1.24.2
 
