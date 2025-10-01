@@ -4,14 +4,12 @@ import (
 	"time"
 )
 
-type TaskType string
+type Phase string
 
 const (
-	TaskTypeRecon          TaskType = "recon"
-	TaskTypeExploitTool    TaskType = "exploit-tool"
-	TaskTypeExploitScript  TaskType = "exploit-script"
-	TaskTypeExploitLateral TaskType = "exploit-lateral"
-	TaskTypeReport         TaskType = "report"
+	PhaseRecongnizing Phase = "recognizing"
+	PhaseExploiting   Phase = "exploiting"
+	PhaseReporting    Phase = "reporting"
 )
 
 type Status string
@@ -23,37 +21,56 @@ const (
 	StatusFailed     Status = "failed"
 )
 
-type Pentest struct {
+type Scope string
+
+const (
+	ScopeHolistic Scope = "HOLISTIC"
+	ScopeTargeted Scope = "TARGETED"
+)
+
+type Type string
+
+const (
+	TypeBlackBox Type = "BLACK_BOX"
+	TypeWhiteBox Type = "WHITE_BOX"
+)
+
+type Style string
+
+const (
+	StyleAggressive Style = "AGGRESSIVE"
+	StyleSafe       Style = "SAFE"
+)
+
+type Base struct {
 	ID         string     `json:"id"`
 	Status     Status     `json:"status"`
 	CreatedAt  time.Time  `json:"created_at"`
 	StartedAt  *time.Time `json:"started_at"`
 	FinishedAt *time.Time `json:"finished_at"`
-	Result     *string    `json:"result"`
-	Targets    []Target   `json:"targets,omitempty"`
+}
+
+type Pentest struct {
+	Base
+	Style   Style          `json:"style"`
+	Summary map[string]any `json:"summary,omitempty"`
+	Targets []Target       `json:"targets,omitempty"`
 }
 
 type Target struct {
-	ID         string     `json:"id"`
-	PentestID  string     `json:"pentest_id"`
-	Target     string     `json:"target"`
-	Status     Status     `json:"status"`
-	CreatedAt  time.Time  `json:"created_at"`
-	StartedAt  *time.Time `json:"started_at"`
-	FinishedAt *time.Time `json:"finished_at"`
-	Result     *string    `json:"result"`
-	Pentest    *Pentest   `json:"pentest,omitempty"`
-	Tasks      []Task     `json:"tasks,omitempty"`
+	Base
+	PentestID string  `json:"pentest_id"`
+	Target    string  `json:"target"`
+	Scope     Scope   `json:"scope"`
+	Type      Type    `json:"type"`
+	Phase     Phase   `json:"phase"`
+	Username  *string `json:"username,omitempty"`
+	Password  *string `json:"password,omitempty"`
 }
 
-type Task struct {
-	ID       string   `json:"id"`
-	TargetID string   `json:"target_id"`
-	Type     TaskType `json:"type"`
-	Status   Status   `json:"status"`
-	Result   *string  `json:"result"`
-	Phase    int      `json:"phase"`
-	Target   *Target  `json:"target,omitempty"`
+type Credentials struct {
+	APIKey    string `json:"api_key"`
+	APISecret string `json:"api_secret"`
 }
 
 type PaginationParams struct {
@@ -81,7 +98,7 @@ type ReportFormat string
 
 const (
 	ReportFormatPDF      ReportFormat = "pdf"
-	ReportFormatAll      ReportFormat = "all"
+	ReportFormatJson     ReportFormat = "json"
 	ReportFormatMarkdown ReportFormat = "md"
 )
 

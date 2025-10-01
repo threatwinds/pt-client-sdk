@@ -7,10 +7,9 @@ import (
 	"github.com/threatwinds/go-sdk/utils"
 )
 
-type Credentials struct {
-	APIKey    string `json:"api_key"`
-	APISecret string `json:"api_secret"`
-}
+const (
+	AuthAPIURL = "https://inference.threatwinds.com/api/auth/v2/keypair"
+)
 
 func ValidateCredentials(creds Credentials) error {
 	headers := map[string]string{

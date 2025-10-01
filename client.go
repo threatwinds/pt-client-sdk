@@ -5,10 +5,6 @@ import (
 	"sync"
 )
 
-const (
-	AuthAPIURL = "https://inference.threatwinds.com/api/auth/v2/keypair"
-)
-
 type Client struct {
 	BaseURL     string
 	HTTPClient  *http.Client
