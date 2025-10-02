@@ -4,17 +4,13 @@ import (
 	"time"
 )
 
-type Phase string
-
-const (
-	PhaseRecongnizing Phase = "recognizing"
-	PhaseExploiting   Phase = "exploiting"
-	PhaseReporting    Phase = "reporting"
-)
-
 type Status string
 
 const (
+	StatusRecongnizing Status = "recognizing"
+	StatusExploiting   Status = "exploiting"
+	StatusReporting    Status = "reporting"
+
 	StatusPending    Status = "pending"
 	StatusInProgress Status = "in_progress"
 	StatusCompleted  Status = "completed"
@@ -53,6 +49,7 @@ type Base struct {
 type Pentest struct {
 	Base
 	Style   Style          `json:"style"`
+	Exploit bool           `json:"exploit"`
 	Summary map[string]any `json:"summary,omitempty"`
 	Targets []Target       `json:"targets,omitempty"`
 }
@@ -63,7 +60,6 @@ type Target struct {
 	Target    string  `json:"target"`
 	Scope     Scope   `json:"scope"`
 	Type      Type    `json:"type"`
-	Phase     Phase   `json:"phase"`
 	Username  *string `json:"username,omitempty"`
 	Password  *string `json:"password,omitempty"`
 }
@@ -87,7 +83,7 @@ type PentestListResponse struct {
 }
 
 type SchedulePentestRequest struct {
-	Targets []string `json:"targets"`
+	Pentest
 }
 
 type SchedulePentestResponse struct {

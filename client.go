@@ -16,10 +16,10 @@ var (
 	once     sync.Once
 )
 
-func NewTWPTClient(host string, creds Credentials) (*Client, error) {
+func NewTWPTClient(baseUrl string, creds Credentials) (*Client, error) {
 	once.Do(func() {
 		instance = &Client{
-			BaseURL:     host,
+			BaseURL:     baseUrl,
 			HTTPClient:  &http.Client{},
 			Credentials: &creds,
 		}
