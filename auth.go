@@ -1,4 +1,4 @@
-package twpt_client_sdk
+package pt_client_sdk
 
 import (
 	"fmt"

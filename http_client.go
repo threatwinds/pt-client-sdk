@@ -1,4 +1,4 @@
-package twpt_client_sdk
+package pt_client_sdk
 
 import (
 	"context"
@@ -9,7 +9,24 @@ import (
 	"github.com/threatwinds/go-sdk/utils"
 )
 
-func (c *Client) ListPentests(ctx context.Context, pagination PaginationParams) (*PentestListResponse, error) {
+// HTTPClient provides HTTP access to the ThreatWinds Pentest API
+type HTTPClient struct {
+	BaseURL     string
+	HTTPClient  *http.Client
+	Credentials *Credentials
+}
+
+// NewHTTPClient creates a new HTTP client instance
+func NewHTTPClient(baseURL string, creds Credentials) *HTTPClient {
+	return &HTTPClient{
+		BaseURL:     baseURL,
+		HTTPClient:  &http.Client{},
+		Credentials: &creds,
+	}
+}
+
+// ListPentests retrieves a paginated list of pentests
+func (c *HTTPClient) ListPentests(ctx context.Context, pagination PaginationParams) (*PentestListResponse, error) {
 	url := fmt.Sprintf("%s/api/v1/pentests?page=%d&page_size=%d", c.BaseURL, pagination.Page, pagination.PageSize)
 
 	headers := map[string]string{
@@ -30,7 +47,8 @@ func (c *Client) ListPentests(ctx context.Context, pagination PaginationParams) 
 	return &result, nil
 }
 
-func (c *Client) GetPentest(ctx context.Context, pentestID string) (*Pentest, error) {
+// GetPentest retrieves a single pentest by ID
+func (c *HTTPClient) GetPentest(ctx context.Context, pentestID string) (*PentestData, error) {
 	url := fmt.Sprintf("%s/api/v1/pentests/%s", c.BaseURL, pentestID)
 
 	headers := map[string]string{
@@ -39,7 +57,7 @@ func (c *Client) GetPentest(ctx context.Context, pentestID string) (*Pentest, er
 		"api-secret": c.Credentials.APISecret,
 	}
 
-	result, statusCode, err := utils.DoReq[Pentest](url, nil, "GET", headers)
+	result, statusCode, err := utils.DoReq[PentestData](url, nil, "GET", headers)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pentest: %w", err)
 	}
@@ -55,7 +73,8 @@ func (c *Client) GetPentest(ctx context.Context, pentestID string) (*Pentest, er
 	return &result, nil
 }
 
-func (c *Client) SchedulePentest(ctx context.Context, pentest Pentest) (string, error) {
+// SchedulePentest schedules a new pentest
+func (c *HTTPClient) SchedulePentest(ctx context.Context, req *SchedulePentestRequest) (string, error) {
 	url := fmt.Sprintf("%s/api/v1/pentests/schedule", c.BaseURL)
 
 	headers := map[string]string{
@@ -65,8 +84,7 @@ func (c *Client) SchedulePentest(ctx context.Context, pentest Pentest) (string, 
 		"api-secret":   c.Credentials.APISecret,
 	}
 
-	body := SchedulePentestRequest{Pentest: pentest}
-	bodyJson, err := json.Marshal(body)
+	bodyJson, err := json.Marshal(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal request body: %w", err)
 	}
@@ -83,23 +101,7 @@ func (c *Client) SchedulePentest(ctx context.Context, pentest Pentest) (string, 
 	return result.PentestID, nil
 }
 
-func (c *Client) SubscribePentest(ctx context.Context, pentestID string) (*PentestSubscription, error) {
-
-	updates := make(chan Pentest)
-	messages := make(chan string)
-	errors := make(chan error)
-
-	close(updates)
-	close(messages)
-	close(errors)
-
-	return &PentestSubscription{
-		Updates:  updates,
-		Messages: messages,
-		Errors:   errors,
-	}, fmt.Errorf("not implemented")
-}
-
-func (c *Client) DownloadReport(ctx context.Context, pentestID string, format ReportFormat, outputDir string) error {
+// DownloadReport downloads a pentest report
+func (c *HTTPClient) DownloadReport(ctx context.Context, pentestID string, format ReportFormat, outputDir string) error {
 	return fmt.Errorf("not implemented")
 }
