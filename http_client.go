@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"path/filepath"
 
 	"github.com/threatwinds/go-sdk/utils"
+	"github.com/threatwinds/pt-client-sdk/helpers"
 )
 
 // HTTPClient provides HTTP access to the ThreatWinds Pentest API
@@ -101,7 +103,31 @@ func (c *HTTPClient) SchedulePentest(ctx context.Context, req *SchedulePentestRe
 	return result.PentestID, nil
 }
 
-// DownloadReport downloads a pentest report
-func (c *HTTPClient) DownloadReport(ctx context.Context, pentestID string, format ReportFormat, outputDir string) error {
-	return fmt.Errorf("not implemented")
+// DownloadEvidence downloads and optionally unzips the evidence for a pentest
+func (c *HTTPClient) DownloadEvidence(ctx context.Context, pentestID string, outputPath string, unzip bool) error {
+	url := fmt.Sprintf("%s/api/v1/pentests/%s/download", c.BaseURL, pentestID)
+
+	headers := map[string]string{
+		"accept":     "application/zip",
+		"api-key":    c.Credentials.APIKey,
+		"api-secret": c.Credentials.APISecret,
+	}
+
+	zipFileName := fmt.Sprintf("pentest_%s_evidence.zip", pentestID)
+	zipFilePath := filepath.Join(outputPath, zipFileName)
+
+	err := helpers.DownloadFile(url, headers, zipFileName, outputPath, false)
+	if err != nil {
+		return fmt.Errorf("failed to download evidence: %w", err)
+	}
+
+	if unzip {
+		extractDir := filepath.Join(outputPath, fmt.Sprintf("pentest_%s_evidence", pentestID))
+		err = helpers.Unzip(zipFilePath, extractDir)
+		if err != nil {
+			return fmt.Errorf("failed to unzip evidence: %w", err)
+		}
+	}
+
+	return nil
 }

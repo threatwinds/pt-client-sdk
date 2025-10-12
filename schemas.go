@@ -25,19 +25,3 @@ type PentestListResponse struct {
 type SchedulePentestResponse struct {
 	PentestID string `json:"pentest_id"`
 }
-
-// ReportFormat for downloading reports
-type ReportFormat string
-
-const (
-	ReportFormatPDF      ReportFormat = "pdf"
-	ReportFormatJSON     ReportFormat = "json"
-	ReportFormatMarkdown ReportFormat = "md"
-)
-
-// DownloadReportRequest for requesting a pentest report
-type DownloadReportRequest struct {
-	PentestID string       `json:"pentest_id"`
-	Format    ReportFormat `json:"format"`
-	OutputDir string       `json:"output_dir"`
-}

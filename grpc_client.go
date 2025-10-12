@@ -28,12 +28,10 @@ func NewGRPCClient(address string, creds Credentials) *GRPCClient {
 }
 
 // GetClient returns the gRPC client with authenticated context.
-// The connection is created lazily on first call and reused.
 func (c *GRPCClient) GetClient(ctx context.Context) (PentestServiceClient, context.Context, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Create connection if needed
 	if c.client == nil {
 		conn, err := grpc.NewClient(
 			c.Address,
@@ -47,7 +45,6 @@ func (c *GRPCClient) GetClient(ctx context.Context) (PentestServiceClient, conte
 		c.client = NewPentestServiceClient(conn)
 	}
 
-	// Create authenticated context
 	authCtx := c.getAuthContext(ctx)
 
 	return c.client, authCtx, nil

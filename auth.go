@@ -11,6 +11,7 @@ const (
 	AuthAPIURL = "https://inference.threatwinds.com/api/auth/v2/keypair"
 )
 
+// ValidateCredentials checks if the provided API credentials are valid
 func ValidateCredentials(creds Credentials) error {
 	headers := map[string]string{
 		"accept":     "application/json",
