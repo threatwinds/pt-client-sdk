@@ -131,3 +131,29 @@ func (c *HTTPClient) DownloadEvidence(ctx context.Context, pentestID string, out
 
 	return nil
 }
+
+func (c *HTTPClient) GetCurrentVersion(ctx context.Context) (string, error) {
+	url := fmt.Sprintf("%s/api/v1/version", c.BaseURL)
+
+	headers := map[string]string{
+		"accept":     "application/json",
+		"api-key":    c.Credentials.APIKey,
+		"api-secret": c.Credentials.APISecret,
+	}
+
+	result, statusCode, err := utils.DoReq[map[string]string](url, nil, "GET", headers)
+	if err != nil {
+		return "", fmt.Errorf("failed to get current version: %w", err)
+	}
+
+	if statusCode != http.StatusOK {
+		return "", fmt.Errorf("unexpected status code: %d", statusCode)
+	}
+
+	version, ok := result["version"]
+	if !ok {
+		return "", fmt.Errorf("version field not found in response")
+	}
+
+	return version, nil
+}
