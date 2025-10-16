@@ -10,36 +10,52 @@ go get github.com/threatwinds/pt-client-sdk
 
 ## Features
 
-- ✅ Independent HTTP client for CRUD operations
-- ✅ Independent gRPC client for bidirectional streaming
+- ✅ Independent HTTP client for CRUD operations with string enums
+- ✅ Independent gRPC client for bidirectional streaming with int32 enums
 - ✅ Authentication with API Key and Secret
 - ✅ Fully separated architecture between HTTP and gRPC
-- ✅ Schemas generated from protobuf (no duplication)
+- ✅ Type-safe API with protocol-specific types
 
 ## Architecture
 
-The SDK provides **two completely independent clients**:
+The SDK provides **two completely independent clients** with **protocol-specific types**:
 
 ### HTTPClient
-Client dedicated exclusively to HTTP/REST operations:
+Client dedicated exclusively to HTTP/REST operations with **string-based enums** for better JSON readability:
 - List pentests with pagination
 - Get pentest details
 - Schedule new pentests
-- Download reports
+- Download evidence
+
+**Why string enums?** REST APIs benefit from human-readable JSON:
+```json
+{
+  "style": "AGGRESSIVE",
+  "scope": "HOLISTIC",
+  "type": "BLACK_BOX"
+}
+```
 
 ### GRPCClient
-Client dedicated exclusively to gRPC streaming:
+Client dedicated exclusively to gRPC streaming with **int32 enums** for efficient binary protocol:
 - Provides direct access to gRPC client with authentication
-- Users implement their own streaming logic
-- Full control over data flow
+- Uses standard protobuf int32 enums
+- Full control over bidirectional streaming
+- Optimal performance for real-time updates
 
-### Why Separated?
+**Why int32 enums?** gRPC/protobuf uses integers for efficiency and forward compatibility.
 
-This architecture allows you to:
-- **Use only HTTP** if you don't need real-time streaming
-- **Use only gRPC** if you only need streaming
-- **Use both** independently according to your needs
-- **Full control** over streaming implementation without predefined abstractions
+### Type System
+
+The SDK maintains **two separate type systems**:
+
+1. **HTTP Types** (`schemas.go`): String-based enums
+   - `HTTPScope`, `HTTPType`, `HTTPStyle`, `HTTPStatus`, etc.
+   - `HTTPPentestData`, `HTTPTargetData`, etc.
+
+2. **Protobuf Types** (`pentest.pb.go`): Int32-based enums
+   - `Scope`, `Type`, `Style`, `Status`, etc.
+   - `PentestData`, `TargetData`, etc.
 
 ## Usage
 
@@ -77,7 +93,8 @@ func main() {
     }
 
     for _, pt := range pentests.Pentests {
-        log.Printf("Pentest ID: %s, Status: %s\n", pt.Id, pt.Status)
+        // Note: Status is a string like "COMPLETED"
+        log.Printf("Pentest ID: %s, Status: %s\n", pt.ID, pt.Status)
     }
 
     // Get a specific pentest
@@ -85,17 +102,20 @@ func main() {
     if err != nil {
         log.Fatal(err)
     }
-    log.Printf("Pentest: %s\n", pentest.Id)
+    log.Printf("Pentest: %s, Style: %s\n", pentest.ID, pentest.Style)
 
-    // Schedule a new pentest
-    req := &twpt.SchedulePentestRequest{
-        Style:   twpt.Style_AGGRESSIVE,
+    // Schedule a new pentest with HTTP types
+    req := &twpt.HTTPSchedulePentestRequest{
+        Style:   twpt.HTTPStyleAggressive,  // String enum: "AGGRESSIVE"
         Exploit: true,
-        Targets: []*twpt.TargetRequest{
+        Targets: []*twpt.HTTPTargetRequest{
             {
                 Target: "example.com",
-                Scope:  twpt.Scope_HOLISTIC,
-                Type:   twpt.Type_BLACK_BOX,
+                Scope:  twpt.HTTPScopeHolistic,  // String enum: "HOLISTIC"
+                Type:   twpt.HTTPTypeBlackBox,   // String enum: "BLACK_BOX"
+                // Optional fields:
+                // ID: &pentestID,
+                // Credentials: &credsJSON,
             },
         },
     }
@@ -105,6 +125,12 @@ func main() {
         log.Fatal(err)
     }
     log.Printf("Pentest scheduled with ID: %s\n", pentestID)
+
+    // Download evidence
+    err = httpClient.DownloadEvidence(ctx, pentestID, "./evidence", true)
+    if err != nil {
+        log.Fatal(err)
+    }
 }
 ```
 
@@ -172,6 +198,7 @@ func main() {
         // Handle different response types
         switch r := resp.ResponseType.(type) {
         case *twpt.ServerResponse_PentestData:
+            // Note: Status is int32 (e.g., 3 for COMPLETED)
             log.Printf("Pentest data: %+v\n", r.PentestData)
 
         case *twpt.ServerResponse_StatusUpdate:
@@ -214,17 +241,17 @@ if err != nil {
     log.Fatal(err)
 }
 
-// Schedule pentest via gRPC
+// Schedule pentest via gRPC with protobuf types
 err = stream.Send(&twpt.ClientRequest{
     RequestType: &twpt.ClientRequest_SchedulePentest{
         SchedulePentest: &twpt.SchedulePentestRequest{
-            Style:   twpt.Style_SAFE,
+            Style:   twpt.Style_SAFE,  // Int32 enum: 2
             Exploit: false,
             Targets: []*twpt.TargetRequest{
                 {
                     Target: "example.com",
-                    Scope:  twpt.Scope_TARGETED,
-                    Type:   twpt.Type_WHITE_BOX,
+                    Scope:  twpt.Scope_TARGETED,   // Int32 enum: 2
+                    Type:   twpt.Type_WHITE_BOX,   // Int32 enum: 2
                 },
             },
         },
@@ -252,7 +279,7 @@ for {
     case *twpt.ServerResponse_StatusUpdate:
         log.Printf("Update: %s\n", r.StatusUpdate.Type)
         if r.StatusUpdate.Data != nil {
-            log.Printf("  Status: %s\n", r.StatusUpdate.Data.Status)
+            log.Printf("  Status: %d\n", r.StatusUpdate.Data.Status)
         }
     }
 }
@@ -283,11 +310,16 @@ grpcClient := twpt.NewGRPCClient(
 defer grpcClient.Close()
 
 // Schedule pentest via HTTP
-pentestID, err := httpClient.SchedulePentest(ctx, &twpt.SchedulePentestRequest{
-    Style:   twpt.Style_AGGRESSIVE,
+pentestID, err := httpClient.SchedulePentest(ctx, &twpt.HTTPSchedulePentestRequest{
+    Style:   twpt.HTTPStyleAggressive,
     Exploit: true,
-    Targets: []*twpt.TargetRequest{
-        {Target: "example.com", Scope: twpt.Scope_HOLISTIC, Type: twpt.Type_BLACK_BOX},
+    Targets: []*twpt.HTTPTargetRequest{
+        {
+            Target: "example.com",
+            Scope:  twpt.HTTPScopeHolistic,
+            Type:   twpt.HTTPTypeBlackBox,
+            // Optional: ID and Credentials
+        },
     },
 })
 
@@ -305,62 +337,108 @@ stream.Send(&twpt.ClientRequest{
 
 ## Data Types
 
-All core types are defined in protobuf and automatically generated:
+### HTTP Enums (String-based)
 
-### Enums
+```go
+// Scope
+twpt.HTTPScopeHolistic  // "HOLISTIC"
+twpt.HTTPScopeTargeted  // "TARGETED"
+
+// Type
+twpt.HTTPTypeBlackBox  // "BLACK_BOX"
+twpt.HTTPTypeWhiteBox  // "WHITE_BOX"
+
+// Style
+twpt.HTTPStyleAggressive  // "AGGRESSIVE"
+twpt.HTTPStyleSafe        // "SAFE"
+
+// Status
+twpt.HTTPStatusPending       // "PENDING"
+twpt.HTTPStatusInProgress    // "IN_PROGRESS"
+twpt.HTTPStatusCompleted     // "COMPLETED"
+twpt.HTTPStatusFailed        // "FAILED"
+
+// Phase
+twpt.HTTPPhaseRecon           // "RECON"
+twpt.HTTPPhaseInitialExploit  // "INITIAL_EXPLOIT"
+twpt.HTTPPhaseDeepExploit     // "DEEP_EXPLOIT"
+twpt.HTTPPhaseLateralMovement // "LATERAL_MOVEMENT"
+twpt.HTTPPhaseReport          // "REPORT"
+twpt.HTTPPhaseFinished        // "FINISHED"
+
+// Severity
+twpt.HTTPSeverityNone      // "NONE"
+twpt.HTTPSeverityLow       // "LOW"
+twpt.HTTPSeverityMedium    // "MEDIUM"
+twpt.HTTPSeverityHigh      // "HIGH"
+twpt.HTTPSeverityCritical  // "CRITICAL"
+```
+
+### gRPC Enums (Int32-based)
 
 ```go
 // Status
-twpt.Status_PENDING
-twpt.Status_IN_PROGRESS
-twpt.Status_COMPLETED
-twpt.Status_FAILED
+twpt.Status_PENDING       // 1
+twpt.Status_IN_PROGRESS   // 2
+twpt.Status_COMPLETED     // 3
+twpt.Status_FAILED        // 4
 
 // Phase
-twpt.Phase_RECON
-twpt.Phase_INITIAL_EXPLOIT
-twpt.Phase_DEEP_EXPLOIT
-twpt.Phase_LATERAL_MOVEMENT
-twpt.Phase_REPORT
+twpt.Phase_RECON             // 1
+twpt.Phase_INITIAL_EXPLOIT   // 2
+twpt.Phase_DEEP_EXPLOIT      // 3
+twpt.Phase_LATERAL_MOVEMENT  // 4
+twpt.Phase_REPORT            // 5
+twpt.Phase_FINISHED          // 6
 
 // Scope
-twpt.Scope_HOLISTIC
-twpt.Scope_TARGETED
+twpt.Scope_HOLISTIC  // 1
+twpt.Scope_TARGETED  // 2
 
 // Type
-twpt.Type_BLACK_BOX
-twpt.Type_WHITE_BOX
+twpt.Type_BLACK_BOX  // 1
+twpt.Type_WHITE_BOX  // 2
 
 // Style
-twpt.Style_AGGRESSIVE
-twpt.Style_SAFE
+twpt.Style_AGGRESSIVE  // 1
+twpt.Style_SAFE        // 2
+
+// Severity
+twpt.Severity_NONE      // 1
+twpt.Severity_LOW       // 2
+twpt.Severity_MEDIUM    // 3
+twpt.Severity_HIGH      // 4
+twpt.Severity_CRITICAL  // 5
 
 // UpdateType
-twpt.UpdateType_INFO
-twpt.UpdateType_ERROR
-twpt.UpdateType_STATUS
-twpt.UpdateType_DEBUG
+twpt.UpdateType_INFO    // 1
+twpt.UpdateType_ERROR   // 2
+twpt.UpdateType_STATUS  // 3
+twpt.UpdateType_DEBUG   // 4
 ```
 
 ### Main Structures
 
-**Protobuf (shared):**
-- `PentestData`: Complete pentest data
-- `TargetData`: Target data
+**HTTP Types (schemas.go):**
+- `HTTPPentestData`: Complete pentest data with string enums (ID, Status, CreatedAt, StartedAt, FinishedAt, Style, Exploit, Summary, Targets, Severity, Findings)
+- `HTTPTargetData`: Target data with string enums (ID, PentestID, Target, Scope, Type, Status, Phase, CreatedAt, StartedAt, FinishedAt, Credentials, Severity, Findings, Summary)
+- `HTTPSchedulePentestRequest`: Request to schedule a pentest (ID, Style, Exploit, Targets)
+- `HTTPTargetRequest`: Target request data (ID, Target, Scope, Type, Credentials)
+- `HTTPPentestListResponse`: Paginated list response (Pentests, Total, Page, PageSize, TotalPages)
+- `HTTPSchedulePentestResponse`: Schedule response (PentestID)
+- `Credentials`: API key and secret (APIKey, APISecret)
+- `PaginationParams`: Pagination parameters (Page, PageSize)
+
+**Protobuf Types (pentest.pb.go):**
+- `PentestData`: Complete pentest data with int32 enums
+- `TargetData`: Target data with int32 enums
 - `ClientRequest`: Client to server request (gRPC)
 - `ServerResponse`: Server to client response (gRPC)
 - `SchedulePentestRequest`: Request to schedule a pentest
 - `TargetRequest`: Request with target data
 - `GetPentestRequest`: Request to get a pentest
 - `StatusUpdate`: Status update
-
-**HTTP specific:**
-- `Credentials`: API key and secret
-- `PaginationParams`: Pagination parameters
-- `PentestListResponse`: Paginated list response
-- `SchedulePentestResponse`: Schedule pentest response
-- `ReportFormat`: Report format (PDF, JSON, MD)
-- `DownloadReportRequest`: Download report request
+- `ErrorResponse`: Error response
 
 ## API Reference
 
@@ -375,10 +453,11 @@ type HTTPClient struct {
 
 func NewHTTPClient(baseURL string, creds Credentials) *HTTPClient
 
-func (c *HTTPClient) ListPentests(ctx context.Context, pagination PaginationParams) (*PentestListResponse, error)
-func (c *HTTPClient) GetPentest(ctx context.Context, pentestID string) (*PentestData, error)
-func (c *HTTPClient) SchedulePentest(ctx context.Context, req *SchedulePentestRequest) (string, error)
-func (c *HTTPClient) DownloadReport(ctx context.Context, pentestID string, format ReportFormat, outputDir string) error
+func (c *HTTPClient) ListPentests(ctx context.Context, pagination PaginationParams) (*HTTPPentestListResponse, error)
+func (c *HTTPClient) GetPentest(ctx context.Context, pentestID string) (*HTTPPentestData, error)
+func (c *HTTPClient) SchedulePentest(ctx context.Context, req *HTTPSchedulePentestRequest) (string, error)
+func (c *HTTPClient) DownloadEvidence(ctx context.Context, pentestID string, outputPath string, unzip bool) error
+func (c *HTTPClient) GetCurrentVersion(ctx context.Context) (string, error)
 ```
 
 ### GRPCClient
@@ -424,12 +503,16 @@ go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
 ```
 pt-client-sdk/
-├── http_client.go         # Independent HTTP client
-├── grpc_client.go         # Independent gRPC client
-├── schemas.go             # HTTP auxiliary types
-├── pentest.proto          # Protobuf definition
-├── pentest.pb.go          # Generated types
+├── pentest.proto          # Protobuf definition (source of truth)
+├── pentest.pb.go          # Generated types (int32 enums)
 ├── pentest_grpc.pb.go     # Generated gRPC client
+├── schemas.go             # HTTP types (string enums)
+├── http_client.go         # HTTP client (uses HTTP types)
+├── grpc_client.go         # gRPC client (uses protobuf types)
+├── auth.go                # Authentication validation
+├── helpers/               # Utility functions
+│   ├── download.go
+│   └── zip.go
 └── generate.sh            # Script to generate proto code
 ```
 
@@ -437,13 +520,34 @@ pt-client-sdk/
 
 **HTTP:**
 ```
-HTTPClient → REST API → Response
+HTTPClient → HTTP Types (string enums) → REST API → JSON Response
 ```
 
 **gRPC:**
 ```
-GRPCClient.GetClient() → Your code → gRPC Stream ↔ Server
+GRPCClient → Protobuf Types (int32 enums) → gRPC Stream ↔ Server
 ```
+
+## Why This Architecture?
+
+### ✅ Protocol-Appropriate Types
+- **HTTP/REST**: Uses string enums for human-readable JSON
+- **gRPC**: Uses int32 enums for efficiency and protobuf standards
+
+### ✅ No Breaking Changes
+- Each protocol has its own type system
+- No forced serialization issues
+- Forward compatible with protobuf evolution
+
+### ✅ Type Safety
+- Compile-time checks for enum usage
+- No runtime conversion errors
+- Clear separation of concerns
+
+### ✅ Flexibility
+- Direct access to protocol-specific types
+- Mix and match HTTP and gRPC clients
+- Independent operation of each client
 
 ## Authentication
 

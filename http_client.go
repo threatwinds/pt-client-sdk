@@ -28,7 +28,7 @@ func NewHTTPClient(baseURL string, creds Credentials) *HTTPClient {
 }
 
 // ListPentests retrieves a paginated list of pentests
-func (c *HTTPClient) ListPentests(ctx context.Context, pagination PaginationParams) (*PentestListResponse, error) {
+func (c *HTTPClient) ListPentests(ctx context.Context, pagination PaginationParams) (*HTTPPentestListResponse, error) {
 	url := fmt.Sprintf("%s/api/v1/pentests?page=%d&page_size=%d", c.BaseURL, pagination.Page, pagination.PageSize)
 
 	headers := map[string]string{
@@ -37,7 +37,7 @@ func (c *HTTPClient) ListPentests(ctx context.Context, pagination PaginationPara
 		"api-secret": c.Credentials.APISecret,
 	}
 
-	result, statusCode, err := utils.DoReq[PentestListResponse](url, nil, "GET", headers)
+	result, statusCode, err := utils.DoReq[HTTPPentestListResponse](url, nil, "GET", headers)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list pentests: %w", err)
 	}
@@ -50,7 +50,7 @@ func (c *HTTPClient) ListPentests(ctx context.Context, pagination PaginationPara
 }
 
 // GetPentest retrieves a single pentest by ID
-func (c *HTTPClient) GetPentest(ctx context.Context, pentestID string) (*PentestData, error) {
+func (c *HTTPClient) GetPentest(ctx context.Context, pentestID string) (*HTTPPentestData, error) {
 	url := fmt.Sprintf("%s/api/v1/pentests/%s", c.BaseURL, pentestID)
 
 	headers := map[string]string{
@@ -59,7 +59,7 @@ func (c *HTTPClient) GetPentest(ctx context.Context, pentestID string) (*Pentest
 		"api-secret": c.Credentials.APISecret,
 	}
 
-	result, statusCode, err := utils.DoReq[PentestData](url, nil, "GET", headers)
+	result, statusCode, err := utils.DoReq[HTTPPentestData](url, nil, "GET", headers)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pentest: %w", err)
 	}
@@ -76,7 +76,7 @@ func (c *HTTPClient) GetPentest(ctx context.Context, pentestID string) (*Pentest
 }
 
 // SchedulePentest schedules a new pentest
-func (c *HTTPClient) SchedulePentest(ctx context.Context, req *SchedulePentestRequest) (string, error) {
+func (c *HTTPClient) SchedulePentest(ctx context.Context, req *HTTPSchedulePentestRequest) (string, error) {
 	url := fmt.Sprintf("%s/api/v1/pentests/schedule", c.BaseURL)
 
 	headers := map[string]string{
@@ -91,7 +91,7 @@ func (c *HTTPClient) SchedulePentest(ctx context.Context, req *SchedulePentestRe
 		return "", fmt.Errorf("failed to marshal request body: %w", err)
 	}
 
-	result, statusCode, err := utils.DoReq[SchedulePentestResponse](url, bodyJson, "POST", headers)
+	result, statusCode, err := utils.DoReq[HTTPSchedulePentestResponse](url, bodyJson, "POST", headers)
 	if err != nil {
 		return "", fmt.Errorf("failed to schedule pentest: %w", err)
 	}
